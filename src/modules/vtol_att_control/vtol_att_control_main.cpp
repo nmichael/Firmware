@@ -241,7 +241,7 @@ VtolAttitudeControl::VtolAttitudeControl() :
 	flag_idle_mc = true;
 	_airspeed_tot = 0.0f;
 	_thrust_low_bound = 0.0f;
-	_thrust_filt = 0.0f
+	_thrust_filt = 0.0f;
 
 	memset(& _vtol_vehicle_status, 0, sizeof(_vtol_vehicle_status));
 	_vtol_vehicle_status.vtol_in_rw_mode = true;	/* start vtol in rotary wing mode*/
