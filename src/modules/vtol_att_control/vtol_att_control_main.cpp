@@ -173,6 +173,7 @@ private:
 	unsigned _motor_count;	// number of motors
 	float _airspeed_tot;
 	float _thrust_low_bound;	// lowest thrust value allowed in mc mode
+	float _thrust_filt;			// filtered thrust command
 
 //*****************Member functions***********************************************************************
 
@@ -240,6 +241,7 @@ VtolAttitudeControl::VtolAttitudeControl() :
 	flag_idle_mc = true;
 	_airspeed_tot = 0.0f;
 	_thrust_low_bound = 0.0f;
+	_thrust_filt = 0.0f
 
 	memset(& _vtol_vehicle_status, 0, sizeof(_vtol_vehicle_status));
 	_vtol_vehicle_status.vtol_in_rw_mode = true;	/* start vtol in rotary wing mode*/
@@ -666,9 +668,11 @@ void VtolAttitudeControl::calc_tot_airspeed() {
 }
 
 void VtolAttitudeControl::limit_min_thrust() {
+	// filter thrust command
+	_thrust_filt = _params.arsp_lp_gain*(_thrust_filt - _actuators_mc_in.control[3]) + _actuators_mc_in.control[3];
 	// prevent too low airspeeds over control surfaces in altitude control mode
 	if(_airspeed_tot < _params.mc_airspeed_min && _v_control_mode.flag_control_altitude_enabled && _thrust_low_bound < 0.001f) {
-		_thrust_low_bound = _actuators_mc_in.control[3];
+		_thrust_low_bound = _thrust_filt;
 	}
 	if(_actuators_mc_in.control[3] > _thrust_low_bound + 0.05f || !_v_control_mode.flag_control_altitude_enabled) {
 		_thrust_low_bound = 0.0f;
