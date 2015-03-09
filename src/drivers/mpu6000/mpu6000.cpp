@@ -243,6 +243,8 @@ private:
 	int			_accel_orb_class_instance;
 	int			_accel_class_instance;
 
+        struct accel_params     _accel_params;
+
 	RingBuffer		*_gyro_reports;
 
 	struct gyro_scale	_gyro_scale;
@@ -494,6 +496,7 @@ MPU6000::MPU6000(int bus, const char *path_accel, const char *path_gyro, spi_dev
 	_accel_topic(-1),
 	_accel_orb_class_instance(-1),
 	_accel_class_instance(-1),
+        _accel_params{},
 	_gyro_reports(nullptr),
 	_gyro_scale{},
 	_gyro_range_scale(0.0f),
@@ -608,6 +611,16 @@ MPU6000::init()
 	_accel_scale.z_offset = 0;
 	_accel_scale.z_scale  = 1.0f;
 
+        _accel_params.bax0 = 0.0f;
+        _accel_params.bax1 = 0.0f;
+        _accel_params.bax2 = 0.0f;
+        _accel_params.bay0 = 0.0f;
+        _accel_params.bay1 = 0.0f;
+        _accel_params.bay2 = 0.0f;
+        _accel_params.baz0 = 0.0f;
+        _accel_params.baz1 = 0.0f;
+        _accel_params.baz2 = 0.0f;
+
 	_gyro_scale.x_offset = 0;
 	_gyro_scale.x_scale  = 1.0f;
 	_gyro_scale.y_offset = 0;
@@ -702,16 +715,17 @@ int MPU6000::reset()
 	_set_dlpf_filter(MPU6000_DEFAULT_ONCHIP_FILTER_FREQ);
 	usleep(1000);
 	// Gyro scale 2000 deg/s ()
-	write_checked_reg(MPUREG_GYRO_CONFIG, BITS_FS_2000DPS);
+	//write_checked_reg(MPUREG_GYRO_CONFIG, BITS_FS_2000DPS);
+        write_checked_reg(MPUREG_GYRO_CONFIG, BITS_FS_250DPS);
 	usleep(1000);
 
 	// correct gyro scale factors
 	// scale to rad/s in SI units
 	// 2000 deg/s = (2000/180)*PI = 34.906585 rad/s
 	// scaling factor:
-	// 1/(2^15)*(2000/180)*PI
-	_gyro_range_scale = (0.0174532 / 16.4);//1.0f / (32768.0f * (2000.0f / 180.0f) * M_PI_F);
-	_gyro_range_rad_s = (2000.0f / 180.0f) * M_PI_F;
+	// 1/(2^15)*(250/180)*PI
+	_gyro_range_scale = (M_PI_F / 180.0f) / 131.072f;
+	_gyro_range_rad_s = (250.0f / 180.0f) * M_PI_F;
 
 	// product-specific scaling
 	switch (_product) {
@@ -719,9 +733,9 @@ int MPU6000::reset()
 	case MPU6000ES_REV_C5:
 	case MPU6000_REV_C4:
 	case MPU6000_REV_C5:
-		// Accel scale 8g (4096 LSB/g)
+		// Accel scale 4g (8192 LSB/g)
 		// Rev C has different scaling than rev D
-		write_checked_reg(MPUREG_ACCEL_CONFIG, 1 << 3);
+                write_checked_reg(MPUREG_ACCEL_CONFIG, 1 << 2);
 		break;
 
 	case MPU6000ES_REV_D6:
@@ -735,15 +749,15 @@ int MPU6000::reset()
 	// default case to cope with new chip revisions, which
 	// presumably won't have the accel scaling bug
 	default:
-		// Accel scale 8g (4096 LSB/g)
-		write_checked_reg(MPUREG_ACCEL_CONFIG, 2 << 3);
+		// Accel scale 4g (8192 LSB/g)
+                write_checked_reg(MPUREG_ACCEL_CONFIG, 2 << 2);
 		break;
 	}
 
-	// Correct accel scale factors of 4096 LSB/g
+	// Correct accel scale factors of 8192 LSB/g
 	// scale to m/s^2 ( 1g = 9.81 m/s^2)
-	_accel_range_scale = (MPU6000_ONE_G / 4096.0f);
-	_accel_range_m_s2 = 8.0f * MPU6000_ONE_G;
+	_accel_range_scale = (MPU6000_ONE_G / 8192.0f);
+	_accel_range_m_s2 = 4.0f * MPU6000_ONE_G;
 
 	usleep(1000);
 
@@ -1711,9 +1725,25 @@ MPU6000::measure()
 	arb.y_raw = report.accel_y;
 	arb.z_raw = report.accel_z;
 
-	float x_in_new = ((report.accel_x * _accel_range_scale) - _accel_scale.x_offset) * _accel_scale.x_scale;
-	float y_in_new = ((report.accel_y * _accel_range_scale) - _accel_scale.y_offset) * _accel_scale.y_scale;
-	float z_in_new = ((report.accel_z * _accel_range_scale) - _accel_scale.z_offset) * _accel_scale.z_scale;
+	arb.temperature_raw = report.temp;
+	arb.temperature = (report.temp) / 361.0f + 35.0f;
+
+        float T = arb.temperature;
+        float T2 = T * T;
+
+        float bax = _accel_params.bax0 + _accel_params.bax1 * T + _accel_params.bax2 * T2;
+        float bay = _accel_params.bay0 + _accel_params.bay1 * T + _accel_params.bay2 * T2;
+        float baz = _accel_params.baz0 + _accel_params.baz1 * T + _accel_params.baz2 * T2;
+
+        // temperature-compensated acceleration values
+        float a_tcx = report.accel_x * _accel_range_scale - bax;
+        float a_tcy = report.accel_y * _accel_range_scale - bay;
+        float a_tcz = report.accel_z * _accel_range_scale - baz;
+
+        // gravity-magnitude calibrated acceleration values
+        float x_in_new = _accel_scale.x_scale * (a_tcx - _accel_scale.x_offset);
+        float y_in_new = _accel_scale.y_scale * (a_tcy - _accel_scale.y_offset);
+        float z_in_new = _accel_scale.z_scale * (a_tcz - _accel_scale.z_offset);
 
 	arb.x = _accel_filter_x.apply(x_in_new);
 	arb.y = _accel_filter_y.apply(y_in_new);
@@ -1724,9 +1754,6 @@ MPU6000::measure()
 
 	arb.scaling = _accel_range_scale;
 	arb.range_m_s2 = _accel_range_m_s2;
-
-	arb.temperature_raw = report.temp;
-	arb.temperature = (report.temp) / 361.0f + 35.0f;
 
 	grb.x_raw = report.gyro_x;
 	grb.y_raw = report.gyro_y;
