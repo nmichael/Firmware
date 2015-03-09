@@ -1310,6 +1310,21 @@ MPU6000::ioctl(struct file *filp, int cmd, unsigned long arg)
 		memcpy((struct accel_scale *) arg, &_accel_scale, sizeof(_accel_scale));
 		return OK;
 
+          case ACCELIOCSPARAM:
+          {
+            /* copy scale */
+            struct accel_params *s = (struct accel_params *) arg;
+            memcpy(&_accel_params, s, sizeof(_accel_params));
+            return OK;
+          }
+
+          case ACCELIOCGPARAM:
+          {
+            /* copy parameters out */
+            memcpy((struct accel_params *) arg, &_accel_params, sizeof(_accel_params));
+            return OK;
+          }
+
 	case ACCELIOCSRANGE:
 		/* XXX not implemented */
 		// XXX change these two values on set:
