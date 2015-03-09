@@ -212,8 +212,8 @@ void NonlinearSO3AHRSinit(float ax, float ay, float az, float mx, float my, floa
     float magX, magY;
     float initialHdg, cosHeading, sinHeading;
 
-    initialRoll = atan2(-ay, -az);
-    initialPitch = atan2(ax, -az);
+    initialRoll = atan2(ay, az);
+    initialPitch = atan2(-ax, az);
 
     cosRoll = cosf(initialRoll);
     sinRoll = sinf(initialRoll);
@@ -558,10 +558,9 @@ int attitude_estimator_so3_thread_main(int argc, char *argv[])
 						continue;
 					}
 
-					// NOTE : Accelerometer is reversed.
-					// Because proper mount of PX4 will give you a reversed accelerometer readings.
+                                        // gyro, acc is rotated by sensors module by SENS_BOARD_ROT param
 					NonlinearSO3AHRSupdate(gyro[0], gyro[1], gyro[2],
-										-acc[0], -acc[1], -acc[2],
+										acc[0], acc[1], acc[2],
 										mag[0], mag[1], mag[2],
 										so3_comp_params.Kp,
 										so3_comp_params.Ki, 
