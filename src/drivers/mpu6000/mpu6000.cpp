@@ -132,6 +132,10 @@
 #define BITS_FS_500DPS			0x08
 #define BITS_FS_1000DPS			0x10
 #define BITS_FS_2000DPS			0x18
+#define BITS_FS_2G			0x00
+#define BITS_FS_4G			0x08
+#define BITS_FS_8G			0x10
+#define BITS_FS_16G			0x18
 #define BITS_FS_MASK			0x18
 #define BITS_DLPF_CFG_256HZ_NOLPF2	0x00
 #define BITS_DLPF_CFG_188HZ		0x01
@@ -714,52 +718,25 @@ int MPU6000::reset()
 	// system response
 	_set_dlpf_filter(MPU6000_DEFAULT_ONCHIP_FILTER_FREQ);
 	usleep(1000);
-	// Gyro scale 2000 deg/s ()
-	//write_checked_reg(MPUREG_GYRO_CONFIG, BITS_FS_2000DPS);
+	// Gyro scale 250 deg/s ()
         write_checked_reg(MPUREG_GYRO_CONFIG, BITS_FS_250DPS);
 	usleep(1000);
 
 	// correct gyro scale factors
 	// scale to rad/s in SI units
 	// 2000 deg/s = (2000/180)*PI = 34.906585 rad/s
-	// scaling factor:
-	// 1/(2^15)*(250/180)*PI
-	_gyro_range_scale = (M_PI_F / 180.0f) / 131.072f;
+	// scaling factor: 131 LSB/(deg/s)
+	_gyro_range_scale = (M_PI_F / 180.0f) / 131.0f;
 	_gyro_range_rad_s = (250.0f / 180.0f) * M_PI_F;
 
-	// product-specific scaling
-	switch (_product) {
-	case MPU6000ES_REV_C4:
-	case MPU6000ES_REV_C5:
-	case MPU6000_REV_C4:
-	case MPU6000_REV_C5:
-		// Accel scale 4g (8192 LSB/g)
-		// Rev C has different scaling than rev D
-                write_checked_reg(MPUREG_ACCEL_CONFIG, 1 << 2);
-		break;
-
-	case MPU6000ES_REV_D6:
-	case MPU6000ES_REV_D7:
-	case MPU6000ES_REV_D8:
-	case MPU6000_REV_D6:
-	case MPU6000_REV_D7:
-	case MPU6000_REV_D8:
-	case MPU6000_REV_D9:
-	case MPU6000_REV_D10:
-	// default case to cope with new chip revisions, which
-	// presumably won't have the accel scaling bug
-	default:
-		// Accel scale 4g (8192 LSB/g)
-                write_checked_reg(MPUREG_ACCEL_CONFIG, 2 << 2);
-		break;
-	}
+        // Accel scale 4g (8192 LSB/g)
+        write_checked_reg(MPUREG_ACCEL_CONFIG, BITS_FS_4G);
+	usleep(1000);
 
 	// Correct accel scale factors of 8192 LSB/g
 	// scale to m/s^2 ( 1g = 9.81 m/s^2)
 	_accel_range_scale = (MPU6000_ONE_G / 8192.0f);
 	_accel_range_m_s2 = 4.0f * MPU6000_ONE_G;
-
-	usleep(1000);
 
 	// INT CFG => Interrupt on Data Ready
 	write_checked_reg(MPUREG_INT_ENABLE, BIT_RAW_RDY_EN);        // INT: Raw data ready
