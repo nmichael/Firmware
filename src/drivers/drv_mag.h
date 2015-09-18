@@ -80,6 +80,19 @@ struct mag_scale {
 	float	z_scale;
 };
 
+/** mag correction matrix parameters **/
+struct mag_params {
+  float M_xx;
+  float M_xy;
+  float M_xz;
+  float M_yx;
+  float M_yy;
+  float M_yz;
+  float M_zx;
+  float M_zy;
+  float M_zz;
+};
+
 /*
  * ObjDev tag for raw magnetometer data.
  */
@@ -131,5 +144,11 @@ ORB_DECLARE(sensor_mag);
 
 /** enable/disable temperature compensation */
 #define MAGIOCSTEMPCOMP		_MAGIOC(12)
+
+/** set the mag param constants to the structure pointed to by (arg) */
+#define MAGIOCSPARAM      _MAGIOC(13)
+
+/** get the mag param constants into the structure pointed to by (arg) */
+#define MAGIOCGPARAM      _MAGIOC(14)
 
 #endif /* _DRV_MAG_H */

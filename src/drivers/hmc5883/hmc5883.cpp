@@ -158,6 +158,7 @@ private:
 
 	RingBuffer		*_reports;
 	mag_scale		_scale;
+	mag_params		_mag_params;
 	float 			_range_scale;
 	float 			_range_ga;
 	bool			_collect_phase;
@@ -355,6 +356,7 @@ HMC5883::HMC5883(device::Device *interface, const char *path, enum Rotation rota
 	_measure_ticks(0),
 	_reports(nullptr),
 	_scale{},
+        _mag_params{},
 	_range_scale(0), /* default range scale from counts to gauss */
 	_range_ga(1.3f),
 	_collect_phase(false),
@@ -387,6 +389,17 @@ HMC5883::HMC5883(device::Device *interface, const char *path, enum Rotation rota
 	_scale.y_scale = 1.0f;
 	_scale.z_offset = 0;
 	_scale.z_scale = 1.0f;
+
+        // default magnetic correction matrix values
+        _mag_params.M_xx = 1.0f;
+        _mag_params.M_xy = 0.0f;
+        _mag_params.M_xz = 0.0f;
+        _mag_params.M_yx = 0.0f;
+        _mag_params.M_yy = 1.0f;
+        _mag_params.M_yz = 0.0f;
+        _mag_params.M_zx = 0.0f;
+        _mag_params.M_zy = 0.0f;
+        _mag_params.M_zz = 1.0f;
 
 	// work_cancel in the dtor will explode if we don't do this...
 	memset(&_work, 0, sizeof(_work));
@@ -724,6 +737,16 @@ HMC5883::ioctl(struct file *filp, int cmd, unsigned long arg)
 		memcpy((mag_scale *)arg, &_scale, sizeof(_scale));
 		return 0;
 
+          case MAGIOCSPARAM:
+            /* set new magnetic correction parameters */
+            memcpy(&_mag_params, (mag_params *)arg, sizeof(_mag_params));
+            return 0;
+
+          case MAGIOCGPARAM:
+            /* copy out magnetic correction parameters */
+            memcpy((mag_params *)arg, &_mag_params, sizeof(_mag_params));
+            return 0;
+
 	case MAGIOCCALIBRATE:
 		return calibrate(filp, arg);
 
@@ -866,10 +889,6 @@ HMC5883::collect()
 	struct mag_report new_report;
 	bool sensor_is_onboard = false;
 
-	float xraw_f;
-	float yraw_f;
-	float zraw_f;
-
 	/* this should be fairly close to the end of the measurement, so the best approximation of the time */
 	new_report.timestamp = hrt_absolute_time();
         new_report.error_count = perf_event_count(_comms_errors);
@@ -921,10 +940,10 @@ HMC5883::collect()
 
 			_temperature_counter = 0;
 
-			ret = _interface->read(ADDR_TEMP_OUT_MSB, 
+			ret = _interface->read(ADDR_TEMP_OUT_MSB,
 					       raw_temperature, sizeof(raw_temperature));
 			if (ret == OK) {
-				int16_t temp16 = (((int16_t)raw_temperature[0]) << 8) + 
+				int16_t temp16 = (((int16_t)raw_temperature[0]) << 8) +
 					raw_temperature[1];
 				new_report.temperature = 25 + (temp16 / (16*8.0f));
 				_temperature_error_count = 0;
@@ -968,21 +987,20 @@ HMC5883::collect()
 		report.x = -report.x;
         }
 
-        /* the standard external mag by 3DR has x pointing to the
-	 * right, y pointing backwards, and z down, therefore switch x
-	 * and y and invert y */
-        xraw_f = -report.y;
-	yraw_f = report.x;
-	zraw_f = report.z;
-
-	// apply user specified rotation
-	rotate_3f(_rotation, xraw_f, yraw_f, zraw_f);
-
-	new_report.x = ((xraw_f * _range_scale) - _scale.x_offset) * _scale.x_scale;
+        float magx, magy, magz;
+        magx = (-report.y * _range_scale) - _scale.x_offset;
 	/* flip axes and negate value for y */
-	new_report.y = ((yraw_f * _range_scale) - _scale.y_offset) * _scale.y_scale;
+	magy = (report.x * _range_scale) - _scale.y_offset;
 	/* z remains z */
-	new_report.z = ((zraw_f * _range_scale) - _scale.z_offset) * _scale.z_scale;
+	magz = (report.z * _range_scale) - _scale.z_offset;
+
+        /* apply magnetic correction matrix */
+        new_report.x =
+          _mag_params.M_xx * magx + _mag_params.M_xy * magy + _mag_params.M_xz * magz;
+        new_report.y =
+          _mag_params.M_yx * magx + _mag_params.M_yy * magy + _mag_params.M_yz * magz;
+        new_report.z =
+          _mag_params.M_zx * magx + _mag_params.M_zy * magy + _mag_params.M_zz * magz;
 
 	if (!(_pub_blocked)) {
 
@@ -1146,8 +1164,8 @@ int HMC5883::calibrate(struct file *filp, unsigned enable)
 			ret = -EIO;
 			goto out;
 		}
-		float cal[3] = {fabsf(expected_cal[0] / report.x), 
-				fabsf(expected_cal[1] / report.y), 
+		float cal[3] = {fabsf(expected_cal[0] / report.x),
+				fabsf(expected_cal[1] / report.y),
 				fabsf(expected_cal[2] / report.z)};
 
 		if (cal[0] > 0.7f && cal[0] < 1.35f &&
@@ -1381,7 +1399,7 @@ HMC5883::print_info()
 	printf("poll interval:  %u ticks\n", _measure_ticks);
 	printf("output  (%.2f %.2f %.2f)\n", (double)_last_report.x, (double)_last_report.y, (double)_last_report.z);
 	printf("offsets (%.2f %.2f %.2f)\n", (double)_scale.x_offset, (double)_scale.y_offset, (double)_scale.z_offset);
-	printf("scaling (%.2f %.2f %.2f) 1/range_scale %.2f range_ga %.2f\n", 
+	printf("scaling (%.2f %.2f %.2f) 1/range_scale %.2f range_ga %.2f\n",
 	       (double)_scale.x_scale, (double)_scale.y_scale, (double)_scale.z_scale,
 	       (double)(1.0f/_range_scale), (double)_range_ga);
 	printf("temperature %.2f\n", (double)_last_report.temperature);
@@ -1451,7 +1469,7 @@ start_bus(struct hmc5883_bus_option &bus, enum Rotation rotation)
 		bus.dev = NULL;
 		return false;
 	}
-			
+
 	int fd = open(bus.devpath, O_RDONLY);
 	if (fd < 0) {
 		return false;
@@ -1505,7 +1523,7 @@ struct hmc5883_bus_option &find_bus(enum HMC5883_BUS busid)
 		     busid == bus_options[i].busid) && bus_options[i].dev != NULL) {
 			return bus_options[i];
 		}
-	}	
+	}
 	errx(1, "bus %u not started", (unsigned)busid);
 }
 
@@ -1750,7 +1768,7 @@ hmc5883_main(int argc, char *argv[])
 		}
 	}
 
-	const char *verb = argv[optind];	
+	const char *verb = argv[optind];
 
 	/*
 	 * Start/load the driver.

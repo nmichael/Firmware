@@ -81,6 +81,19 @@ struct accel_scale {
 	float	z_scale;
 };
 
+/** accel temperature compensation and scaling constants **/
+struct accel_params {
+  float    bax0;
+  float    bax1;
+  float    bax2;
+  float    bay0;
+  float    bay1;
+  float    bay2;
+  float    baz0;
+  float    baz1;
+  float    baz2;
+};
+
 /*
  * ObjDev tag for raw accelerometer data.
  */
@@ -125,5 +138,11 @@ ORB_DECLARE(sensor_accel);
 
 /** get the result of a sensor self-test */
 #define ACCELIOCSELFTEST	_ACCELIOC(9)
+
+/** set the accel param constants to the structure pointed to by (arg) */
+#define ACCELIOCSPARAM          _ACCELIOC(10)
+
+/** get the accel param constants into the structure pointed to by (arg) */
+#define ACCELIOCGPARAM          _ACCELIOC(11)
 
 #endif /* _DRV_ACCEL_H */

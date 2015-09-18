@@ -265,6 +265,20 @@ private:
 		float diff_pres_offset_pa;
 		float diff_pres_analog_scale;
 
+          float bax[3];
+          float bay[3];
+          float baz[3];
+
+          float mag_Mxx;
+          float mag_Mxy;
+          float mag_Mxz;
+          float mag_Myx;
+          float mag_Myy;
+          float mag_Myz;
+          float mag_Mzx;
+          float mag_Mzy;
+          float mag_Mzz;
+
 		int board_rotation;
 		int flow_rotation;
 
@@ -325,6 +339,20 @@ private:
 
 		param_t diff_pres_offset_pa;
 		param_t diff_pres_analog_scale;
+
+          param_t bax[3];
+          param_t bay[3];
+          param_t baz[3];
+
+          param_t mag_Mxx;
+          param_t mag_Mxy;
+          param_t mag_Mxz;
+          param_t mag_Myx;
+          param_t mag_Myy;
+          param_t mag_Myz;
+          param_t mag_Mzx;
+          param_t mag_Mzy;
+          param_t mag_Mzz;
 
 		param_t rc_map_roll;
 		param_t rc_map_pitch;
@@ -640,7 +668,7 @@ Sensors::Sensors() :
 	(void)param_find("PWM_AUX_MIN");
 	(void)param_find("PWM_AUX_MAX");
 	(void)param_find("PWM_AUX_DISARMED");
-	
+
 	/* fetch initial parameter values */
 	parameters_update();
 }
@@ -1376,7 +1404,7 @@ Sensors::parameter_update_poll(bool forced)
 
 			bool config_ok = false;
 
-			/* run through all stored calibrations */ 
+			/* run through all stored calibrations */
 			for (unsigned i = 0; i < 3; i++) {
 				/* initially status is ok per config */
 				failed = false;
@@ -1442,7 +1470,7 @@ Sensors::parameter_update_poll(bool forced)
 
 			bool config_ok = false;
 
-			/* run through all stored calibrations */ 
+			/* run through all stored calibrations */
 			for (unsigned i = 0; i < 3; i++) {
 				/* initially status is ok per config */
 				failed = false;
@@ -1472,6 +1500,27 @@ Sensors::parameter_update_poll(bool forced)
 					(void)sprintf(str, "CAL_ACC%u_ZSCALE", i);
 					failed = failed || (OK != param_get(param_find(str), &gscale.z_scale));
 
+                                        /* accel temperature compensation parameters */
+                                        struct accel_params aparam = {};
+                                        (void)sprintf(str, "CAL_ACC%u_BAX0", i);
+                                        failed = failed || (OK != param_get(param_find(str), &aparam.bax0));
+                                        (void)sprintf(str, "CAL_ACC%u_BAX1", i);
+                                        failed = failed || (OK != param_get(param_find(str), &aparam.bax1));
+                                        (void)sprintf(str, "CAL_ACC%u_BAX2", i);
+                                        failed = failed || (OK != param_get(param_find(str), &aparam.bax2));
+                                        (void)sprintf(str, "CAL_ACC%u_BAY0", i);
+                                        failed = failed || (OK != param_get(param_find(str), &aparam.bay0));
+                                        (void)sprintf(str, "CAL_ACC%u_BAY1", i);
+                                        failed = failed || (OK != param_get(param_find(str), &aparam.bay1));
+                                        (void)sprintf(str, "CAL_ACC%u_BAY2", i);
+                                        failed = failed || (OK != param_get(param_find(str), &aparam.bay2));
+                                        (void)sprintf(str, "CAL_ACC%u_BAZ0", i);
+                                        failed = failed || (OK != param_get(param_find(str), &aparam.baz0));
+                                        (void)sprintf(str, "CAL_ACC%u_BAZ1", i);
+                                        failed = failed || (OK != param_get(param_find(str), &aparam.baz1));
+                                        (void)sprintf(str, "CAL_ACC%u_BAZ2", i);
+                                        failed = failed || (OK != param_get(param_find(str), &aparam.baz2));
+
 					if (failed) {
 						warnx(CAL_ERROR_APPLY_CAL_MSG, "accel", i);
 					} else {
@@ -1480,8 +1529,15 @@ Sensors::parameter_update_poll(bool forced)
 						if (res) {
 							warnx(CAL_ERROR_APPLY_CAL_MSG, "accel", i);
 						} else {
-							config_ok = true;
-						}
+                                                  /* apply temperature compensation */
+                                                  res = ioctl(fd, ACCELIOCSPARAM, (long unsigned int)&aparam);
+                                                  if (res) {
+                                                    warn("WARNING: failed to set temperature compensation parameters for accel");
+                                                  } else {
+                                                    accel_count++;
+                                                    config_ok = true;
+                                                  }
+                                                }
 					}
 					break;
 				}
@@ -1515,7 +1571,7 @@ Sensors::parameter_update_poll(bool forced)
 
 			bool config_ok = false;
 
-			/* run through all stored calibrations */ 
+			/* run through all stored calibrations */
 			for (unsigned i = 0; i < 3; i++) {
 				/* initially status is ok per config */
 				failed = false;
@@ -1544,6 +1600,27 @@ Sensors::parameter_update_poll(bool forced)
 					failed = failed || (OK != param_get(param_find(str), &gscale.y_scale));
 					(void)sprintf(str, "CAL_MAG%u_ZSCALE", i);
 					failed = failed || (OK != param_get(param_find(str), &gscale.z_scale));
+
+                                        /* mag correction matrix parameters */
+                                        struct mag_params mparam = {};
+                                        (void)sprintf(str, "CAL_MAG%u_MXX", i);
+                                        failed = failed || (OK != param_get(param_find(str), &mparam.M_xx));
+                                        (void)sprintf(str, "CAL_MAG%u_MXY", i);
+                                        failed = failed || (OK != param_get(param_find(str), &mparam.M_xy));
+                                        (void)sprintf(str, "CAL_MAG%u_MXZ", i);
+                                        failed = failed || (OK != param_get(param_find(str), &mparam.M_xz));
+                                        (void)sprintf(str, "CAL_MAG%u_MYX", i);
+                                        failed = failed || (OK != param_get(param_find(str), &mparam.M_yx));
+                                        (void)sprintf(str, "CAL_MAG%u_MYY", i);
+                                        failed = failed || (OK != param_get(param_find(str), &mparam.M_yy));
+                                        (void)sprintf(str, "CAL_MAG%u_MYZ", i);
+                                        failed = failed || (OK != param_get(param_find(str), &mparam.M_yz));
+                                        (void)sprintf(str, "CAL_MAG%u_MZX", i);
+                                        failed = failed || (OK != param_get(param_find(str), &mparam.M_zx));
+                                        (void)sprintf(str, "CAL_MAG%u_MZY", i);
+                                        failed = failed || (OK != param_get(param_find(str), &mparam.M_zy));
+                                        (void)sprintf(str, "CAL_MAG%u_MZZ", i);
+                                        failed = failed || (OK != param_get(param_find(str), &mparam.M_zz));
 
 					(void)sprintf(str, "CAL_MAG%u_ROT", i);
 
@@ -1603,8 +1680,14 @@ Sensors::parameter_update_poll(bool forced)
 						if (res) {
 							warnx(CAL_ERROR_APPLY_CAL_MSG, "mag", i);
 						} else {
-							config_ok = true;
-						}
+                                                  res = ioctl(fd, MAGIOCSPARAM, (long unsigned int)&mparam);
+                                                  if (res) {
+                                                    warn("WARNING: failed to set magnetic correction matrix parameters");
+                                                  } else {
+                                                    mag_count++;
+                                                    config_ok = true;
+                                                  }
+                                                }
 					}
 					break;
 				}
@@ -2121,8 +2204,8 @@ Sensors::task_main()
 	/* rate limit vehicle status updates to 5Hz */
 	orb_set_interval(_vcontrol_mode_sub, 200);
 
-	/* rate limit gyro to 250 Hz (the gyro signal is lowpassed accordingly earlier) */
-	orb_set_interval(_gyro_sub, 4);
+	/* rate limit gyro to 500 Hz (the gyro signal is lowpassed accordingly earlier) */
+	orb_set_interval(_gyro_sub, 2);
 
 	/*
 	 * do advertisements
