@@ -269,6 +269,10 @@ private:
           float bay[3];
           float baz[3];
 
+          float bwx[3];
+          float bwy[3];
+          float bwz[3];
+
           float mag_Mxx;
           float mag_Mxy;
           float mag_Mxz;
@@ -343,6 +347,10 @@ private:
           param_t bax[3];
           param_t bay[3];
           param_t baz[3];
+
+          param_t bwx[3];
+          param_t bwy[3];
+          param_t bwz[3];
 
           param_t mag_Mxx;
           param_t mag_Mxy;
@@ -1402,6 +1410,8 @@ Sensors::parameter_update_poll(bool forced)
 				continue;
 			}
 
+			printf("GYRO Device: %s, Device id = %d\n", str, ioctl(fd, DEVIOCGDEVICEID, 0));
+
 			bool config_ok = false;
 
 			/* run through all stored calibrations */
@@ -1434,6 +1444,32 @@ Sensors::parameter_update_poll(bool forced)
 					(void)sprintf(str, "CAL_GYRO%u_ZSCALE", i);
 					failed = failed || (OK != param_get(param_find(str), &gscale.z_scale));
 
+                                        /* gyro temperature compensation parameters */
+                                        struct gyro_params gparam = {};
+                                        (void)sprintf(str, "CAL_GYRO%u_BWX0", i);
+                                        failed = failed || (OK != param_get(param_find(str), &gparam.bwx0));
+                                        (void)sprintf(str, "CAL_GYRO%u_BWX1", i);
+                                        failed = failed || (OK != param_get(param_find(str), &gparam.bwx1));
+                                        (void)sprintf(str, "CAL_GYRO%u_BWX2", i);
+                                        failed = failed || (OK != param_get(param_find(str), &gparam.bwx2));
+                                        (void)sprintf(str, "CAL_GYRO%u_BWY0", i);
+                                        failed = failed || (OK != param_get(param_find(str), &gparam.bwy0));
+                                        (void)sprintf(str, "CAL_GYRO%u_BWY1", i);
+                                        failed = failed || (OK != param_get(param_find(str), &gparam.bwy1));
+                                        (void)sprintf(str, "CAL_GYRO%u_BWY2", i);
+                                        failed = failed || (OK != param_get(param_find(str), &gparam.bwy2));
+                                        (void)sprintf(str, "CAL_GYRO%u_BWZ0", i);
+                                        failed = failed || (OK != param_get(param_find(str), &gparam.bwz0));
+                                        (void)sprintf(str, "CAL_GYRO%u_BWZ1", i);
+                                        failed = failed || (OK != param_get(param_find(str), &gparam.bwz1));
+                                        (void)sprintf(str, "CAL_GYRO%u_BWZ2", i);
+                                        failed = failed || (OK != param_get(param_find(str), &gparam.bwz2));
+
+                                        printf("gparam.bwx0 = %9.8g \t gparam.bwx1 = %9.8g \t gparam.bwx2 = %9.8g \n gparam.bwy0 = %9.8g \t gparam.bwy1 = %9.8g \t gparam.bwy2 = %9.8g \n gparam.bwz0 = %9.8g \t gparam.bwz1 = %9.8g \t gparam.bwz2 = %9.8g \n",
+                                               (double) gparam.bwx0, (double) gparam.bwx1, (double) gparam.bwx2,
+                                               (double) gparam.bwy0, (double) gparam.bwy1, (double) gparam.bwy2,
+                                               (double) gparam.bwz0, (double) gparam.bwz1, (double) gparam.bwz2);
+
 					if (failed) {
 						warnx(CAL_ERROR_APPLY_CAL_MSG, "gyro", i);
 					} else {
@@ -1442,7 +1478,14 @@ Sensors::parameter_update_poll(bool forced)
 						if (res) {
 							warnx(CAL_ERROR_APPLY_CAL_MSG, "gyro", i);
 						} else {
-							config_ok = true;
+							                                    /* apply temperature compensation */
+                                                  res = ioctl(fd, GYROIOCSPARAM, (long unsigned int)&gparam);
+                                                  if (res) {
+                                                    warn("WARNING: failed to set temperature compensation parameters for gyro");
+                                                  } else {
+                                                    gyro_count++;
+                                                    config_ok = true;
+                                                  }
 						}
 					}
 					break;
@@ -1468,6 +1511,8 @@ Sensors::parameter_update_poll(bool forced)
 				continue;
 			}
 
+			printf("ACC Device: %s, Device id = %d\n", str, ioctl(fd, DEVIOCGDEVICEID, 0));
+
 			bool config_ok = false;
 
 			/* run through all stored calibrations */
@@ -1486,7 +1531,7 @@ Sensors::parameter_update_poll(bool forced)
 
 				/* if the calibration is for this device, apply it */
 				if (device_id == ioctl(fd, DEVIOCGDEVICEID, 0)) {
-					struct accel_scale gscale = {};
+          struct accel_scale gscale = {};
 					(void)sprintf(str, "CAL_ACC%u_XOFF", i);
 					failed = failed || (OK != param_get(param_find(str), &gscale.x_offset));
 					(void)sprintf(str, "CAL_ACC%u_YOFF", i);
@@ -1521,7 +1566,12 @@ Sensors::parameter_update_poll(bool forced)
                                         (void)sprintf(str, "CAL_ACC%u_BAZ2", i);
                                         failed = failed || (OK != param_get(param_find(str), &aparam.baz2));
 
-					if (failed) {
+                                        printf("aparam.bax0 = %9.8g \t aparam.bax1 = %9.8g \t aparam.bax2 = %9.8g \n aparam.bay0 = %9.8g \t aparam.bay1 = %9.8g \t aparam.bay2 = %9.8g \n aparam.baz0 = %9.8g \t aparam.baz1 = %9.8g \t aparam.baz2 = %9.8g \n",
+                                               (double) aparam.bax0, (double) aparam.bax1, (double) aparam.bax2,
+                                               (double) aparam.bay0, (double) aparam.bay1, (double) aparam.bay2,
+                                               (double) aparam.baz0, (double) aparam.baz1, (double) aparam.baz2);
+
+          if (failed) {
 						warnx(CAL_ERROR_APPLY_CAL_MSG, "accel", i);
 					} else {
 						/* apply new scaling and offsets */

@@ -81,6 +81,19 @@ struct gyro_scale {
 	float	z_scale;
 };
 
+/** gyro temperature compensation and scaling constants **/
+struct gyro_params {
+  float    bwx0;
+  float    bwx1;
+  float    bwx2;
+  float    bwy0;
+  float    bwy1;
+  float    bwy2;
+  float    bwz0;
+  float    bwz1;
+  float    bwz2;
+};
+
 /*
  * ObjDev tag for raw gyro data.
  */
@@ -121,5 +134,12 @@ ORB_DECLARE(sensor_gyro);
 
 /** check the status of the sensor */
 #define GYROIOCSELFTEST		_GYROIOC(8)
+
+/** set the gyro param constants to the structure pointed to by (arg) */
+#define GYROIOCSPARAM          _GYROIOC(9)
+
+/** get the gyro param constants into the structure pointed to by (arg) */
+#define GYROIOCGPARAM          _GYROIOC(10)
+
 
 #endif /* _DRV_GYRO_H */
