@@ -3,10 +3,11 @@
 #
 
 #
-# Use the configuration's ROMFS.
+# Use the configuration's ROMFS, copy the px4iov2 firmware into
+# the ROMFS if it's available
 #
 ROMFS_ROOT	 = $(PX4_BASE)/ROMFS/px4fmu_common
-ROMFS_OPTIONAL_FILES = $(PX4_BASE)/Images/px4io-v1_default.bin
+ROMFS_OPTIONAL_FILES = $(PX4_BASE)/Images/px4io-v2_default.bin
 
 #
 # Board support modules
@@ -16,33 +17,39 @@ MODULES		+= drivers/stm32
 MODULES		+= drivers/stm32/adc
 MODULES		+= drivers/stm32/tone_alarm
 MODULES		+= drivers/led
-MODULES		+= drivers/px4io
 MODULES		+= drivers/px4fmu
-MODULES		+= drivers/boards/px4fmu-v1
-MODULES		+= drivers/ardrone_interface
-MODULES		+= drivers/l3gd20
+MODULES		+= drivers/px4io
+MODULES		+= drivers/boards/px4fmu-v2
+MODULES		+= drivers/rgbled
 MODULES		+= drivers/mpu6000
+MODULES		+= drivers/lsm303d
+MODULES		+= drivers/l3gd20
 MODULES		+= drivers/hmc5883
 MODULES		+= drivers/ms5611
+MODULES		+= drivers/mb12xx
+MODULES		+= drivers/sf0x
 MODULES		+= drivers/ll40ls
 MODULES		+= drivers/trone
-MODULES		+= drivers/mb12xx
 MODULES		+= drivers/gps
 MODULES		+= drivers/hil
+MODULES		+= drivers/hott
+MODULES		+= drivers/hott/hott_telemetry
+MODULES		+= drivers/hott/hott_sensors
 MODULES		+= drivers/blinkm
-MODULES		+= drivers/rgbled
-MODULES		+= drivers/mkblctrl
 MODULES		+= drivers/airspeed
 MODULES		+= drivers/ets_airspeed
 MODULES		+= drivers/meas_airspeed
 MODULES		+= drivers/frsky_telemetry
 MODULES		+= modules/sensors
+MODULES		+= drivers/mkblctrl
 MODULES		+= drivers/px4flow
+MODULES		+= drivers/oreoled
+MODULES		+= drivers/gimbal
 
 #
 # System commands
 #
-MODULES		+= systemcmds/mtd
+MODULES		+= systemcmds/bl_update
 MODULES		+= systemcmds/mixer
 MODULES		+= systemcmds/param
 MODULES		+= systemcmds/perf
@@ -52,35 +59,39 @@ MODULES		+= systemcmds/reboot
 MODULES		+= systemcmds/top
 MODULES		+= systemcmds/config
 MODULES		+= systemcmds/nshterm
+MODULES		+= systemcmds/mtd
 MODULES		+= systemcmds/dumpfile
 MODULES		+= systemcmds/ver
 
 #
 # General system control
 #
-#MODULES		+= modules/commander
-#MODULES		+= modules/navigator
+MODULES		+= modules/commander
+MODULES		+= modules/navigator
 MODULES		+= modules/mavlink
-#MODULES		+= modules/gpio_led
+MODULES		+= modules/gpio_led
+MODULES		+= modules/uavcan
 #MODULES 	+= modules/land_detector
 
 #
-# Estimation modules (EKF / other filters)
+# Estimation modules (EKF/ SO3 / other filters)
 #
 # Too high RAM usage due to static allocations
 #MODULES		+= modules/attitude_estimator_ekf
-#MODULES		+= modules/ekf_att_pos_estimator
 #MODULES		+= modules/attitude_estimator_q
+#MODULES		+= modules/ekf_att_pos_estimator
 #MODULES		+= modules/position_estimator_inav
 MODULES		+= modules/attitude_estimator_so3
 
 #
 # Vehicle Control
 #
+#MODULES		+= modules/segway # XXX Needs GCC 4.7 fix
 #MODULES		+= modules/fw_pos_control_l1
 #MODULES		+= modules/fw_att_control
 #MODULES		+= modules/mc_att_control
 #MODULES		+= modules/mc_pos_control
+#MODULES 	+= modules/vtol_att_control
 MODULES		+= modules/cmu_rc_command
 MODULES		+= modules/cmu_voltage_monitor
 
@@ -88,12 +99,6 @@ MODULES		+= modules/cmu_voltage_monitor
 # Logging
 #
 MODULES		+= modules/sdlog2
-
-#
-# Unit tests
-#
-#MODULES 	+= modules/unit_test
-#MODULES 	+= modules/commander/commander_tests
 
 #
 # Library modules
@@ -119,23 +124,38 @@ MODULES		+= lib/launchdetection
 MODULES		+= platforms/nuttx
 
 #
+# OBC challenge
+#
+MODULES		+= modules/bottle_drop
+
+#
+# PX4 flow estimator, good for indoors
+#
+MODULES		+= examples/flow_position_estimator
+
+#
+# Rover apps
+#
+MODULES		+= examples/rover_steering_control
+
+#
 # Demo apps
 #
 #MODULES		+= examples/math_demo
 # Tutorial code from
-# https://pixhawk.ethz.ch/px4/dev/hello_sky
+# https://px4.io/dev/px4_simple_app
 #MODULES		+= examples/px4_simple_app
 
 # Tutorial code from
-# https://pixhawk.ethz.ch/px4/dev/daemon
+# https://px4.io/dev/daemon
 #MODULES		+= examples/px4_daemon_app
 
 # Tutorial code from
-# https://pixhawk.ethz.ch/px4/dev/debug_values
+# https://px4.io/dev/debug_values
 #MODULES		+= examples/px4_mavlink_debug
 
 # Tutorial code from
-# https://pixhawk.ethz.ch/px4/dev/example_fixedwing_control
+# https://px4.io/dev/example_fixedwing_control
 #MODULES			+= examples/fixedwing_control
 
 # Hardware test
