@@ -457,6 +457,7 @@ int attitude_estimator_so3_thread_main(int argc, char *argv[])
 	bool state_initialized = false;
 
 	float gyro_offsets[3] = { 0.0f, 0.0f, 0.0f };
+	float accel_offsets[3] = { 0.0f, 0.0f, 0.0f };
 	unsigned offset_count = 0;
 
 	/* register the perf counter */
@@ -503,6 +504,10 @@ int attitude_estimator_so3_thread_main(int argc, char *argv[])
 					gyro_offsets[0] += raw.gyro_rad_s[0];
 					gyro_offsets[1] += raw.gyro_rad_s[1];
 					gyro_offsets[2] += raw.gyro_rad_s[2];
+
+					accel_offsets[0] += raw.accelerometer_m_s2[0];
+					accel_offsets[1] += raw.accelerometer_m_s2[1];
+					accel_offsets[2] += raw.accelerometer_m_s2[2];
 					offset_count++;
 
 					if (hrt_absolute_time() > start_time + 3000000l) {
@@ -510,7 +515,11 @@ int attitude_estimator_so3_thread_main(int argc, char *argv[])
 						gyro_offsets[0] /= offset_count;
 						gyro_offsets[1] /= offset_count;
 						gyro_offsets[2] /= offset_count;
+						accel_offsets[0] /= offset_count;
+						accel_offsets[1] /= offset_count;
+						accel_offsets[2] /= offset_count;
 						warnx("gyro initialized, offsets: %.5f %.5f %.5f", (double)gyro_offsets[0], (double)gyro_offsets[1], (double)gyro_offsets[2]);
+						warnx("accel initialized, offsets: %.5f %.5f %.5f", (double)accel_offsets[0], (double)accel_offsets[1], (double)accel_offsets[2]);
 					}
 
 				} else {
@@ -629,8 +638,11 @@ int attitude_estimator_so3_thread_main(int argc, char *argv[])
 					att.pitchspeed = gyro[1];
 					att.yawspeed = gyro[2];
 
+          float gravity = sqrt(accel_offsets[0]*accel_offsets[0]+
+                               accel_offsets[1]*accel_offsets[1]+
+                               accel_offsets[2]*accel_offsets[2]);
 					att.rollacc = 0;
-					att.pitchacc = 0;
+					att.pitchacc = gravity;
 					att.yawacc = 0;
 
 					/* TODO: Bias estimation required */
