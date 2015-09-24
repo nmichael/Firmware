@@ -263,6 +263,8 @@ private:
 	float			_gyro_range_scale;
 	float			_gyro_range_rad_s;
 
+        struct gyro_params     _gyro_params;
+
 	unsigned		_sample_rate;
 	perf_counter_t		_accel_reads;
 	perf_counter_t		_gyro_reads;
@@ -521,6 +523,7 @@ MPU6000::MPU6000(int bus, const char *path_accel, const char *path_gyro, spi_dev
 	_gyro_scale{},
 	_gyro_range_scale(0.0f),
 	_gyro_range_rad_s(0.0f),
+        _gyro_params{},
 	_sample_rate(1000),
 	_accel_reads(perf_alloc(PC_COUNT, "mpu6000_accel_read")),
 	_gyro_reads(perf_alloc(PC_COUNT, "mpu6000_gyro_read")),
@@ -654,6 +657,15 @@ MPU6000::init()
 	_gyro_scale.z_offset = 0;
 	_gyro_scale.z_scale  = 1.0f;
 
+        _gyro_params.bwx0 = 0.0f;
+        _gyro_params.bwx1 = 0.0f;
+        _gyro_params.bwx2 = 0.0f;
+        _gyro_params.bwy0 = 0.0f;
+        _gyro_params.bwy1 = 0.0f;
+        _gyro_params.bwy2 = 0.0f;
+        _gyro_params.bwz0 = 0.0f;
+        _gyro_params.bwz1 = 0.0f;
+        _gyro_params.bwz2 = 0.0f;
 
 	/* do CDev init for the gyro device node, keep it optional */
 	ret = _gyro->init();
@@ -664,6 +676,7 @@ MPU6000::init()
 	}
 
 	_accel_class_instance = register_class_devname(ACCEL_BASE_DEVICE_PATH);
+	printf("MPU6000 ACC Device: %s%u\n", ACCEL_BASE_DEVICE_PATH, _accel_class_instance);
 
         printf("MPU6000 ACC Device: %s%u\n",
                ACCEL_BASE_DEVICE_PATH, _accel_class_instance);
@@ -678,8 +691,7 @@ MPU6000::init()
 	_accel_topic = orb_advertise_multi(ORB_ID(sensor_accel), &arp,
 		&_accel_orb_class_instance, (is_external()) ? ORB_PRIO_MAX : ORB_PRIO_HIGH);
 
-        printf("_accel_orb_class_instance (should be 0) = %u\n",
-               _accel_orb_class_instance);
+	printf("MPU6000 Accel orb instance (should be 0) = %d\n", _accel_orb_class_instance);
 
 	if (_accel_topic < 0) {
 		warnx("ADVERT FAIL");
@@ -693,8 +705,7 @@ MPU6000::init()
 	_gyro->_gyro_topic = orb_advertise_multi(ORB_ID(sensor_gyro), &grp,
 		&_gyro->_gyro_orb_class_instance, (is_external()) ? ORB_PRIO_MAX : ORB_PRIO_HIGH);
 
-        printf("_gyro_orb_class_instance (should be 0) = %u\n",
-               _gyro->_gyro_orb_class_instance);
+	printf("MPU6000 Gyro orb instance (should be 0) = %d\n", _gyro->_gyro_orb_class_instance);
 
 	if (_gyro->_gyro_topic < 0) {
 		warnx("ADVERT FAIL");
@@ -1410,6 +1421,22 @@ MPU6000::gyro_ioctl(struct file *filp, int cmd, unsigned long arg)
 		memcpy((struct gyro_scale *) arg, &_gyro_scale, sizeof(_gyro_scale));
 		return OK;
 
+          case GYROIOCSPARAM:
+          {
+            /* copy scale */
+            struct gyro_params *s = (struct gyro_params *) arg;
+            memcpy(&_gyro_params, s, sizeof(_gyro_params));
+            return OK;
+          }
+
+          case GYROIOCGPARAM:
+          {
+            /* copy parameters out */
+            memcpy((struct gyro_params *) arg, &_gyro_params, sizeof(_gyro_params));
+            return OK;
+          }
+
+
 	case GYROIOCSRANGE:
 		/* XXX not implemented */
 		// XXX change these two values on set:
@@ -1814,9 +1841,14 @@ MPU6000::measure()
 	// apply user specified rotation
 	rotate_3f(_rotation, xraw_f, yraw_f, zraw_f);
 
-	float x_gyro_in_new = ((xraw_f * _gyro_range_scale) - _gyro_scale.x_offset) * _gyro_scale.x_scale;
-	float y_gyro_in_new = ((yraw_f * _gyro_range_scale) - _gyro_scale.y_offset) * _gyro_scale.y_scale;
-	float z_gyro_in_new = ((zraw_f * _gyro_range_scale) - _gyro_scale.z_offset) * _gyro_scale.z_scale;
+        float bwx = _gyro_params.bwx0 + _gyro_params.bwx1 * T + _gyro_params.bwx2 * T2;
+        float bwy = _gyro_params.bwy0 + _gyro_params.bwy1 * T + _gyro_params.bwy2 * T2;
+        float bwz = _gyro_params.bwz0 + _gyro_params.bwz1 * T + _gyro_params.bwz2 * T2;
+
+  // temperature-compensated gyro values
+	float x_gyro_in_new = ((xraw_f * _gyro_range_scale) - bwx - _gyro_scale.x_offset) * _gyro_scale.x_scale;
+	float y_gyro_in_new = ((yraw_f * _gyro_range_scale) - bwy - _gyro_scale.y_offset) * _gyro_scale.y_scale;
+	float z_gyro_in_new = ((zraw_f * _gyro_range_scale) - bwz - _gyro_scale.z_offset) * _gyro_scale.z_scale;
 
 	grb.x = _gyro_filter_x.apply(x_gyro_in_new);
 	grb.y = _gyro_filter_y.apply(y_gyro_in_new);
@@ -1923,6 +1955,7 @@ MPU6000_gyro::init()
 	}
 
 	_gyro_class_instance = register_class_devname(GYRO_BASE_DEVICE_PATH);
+	printf("MPU6000 GYRO Device: %s%u\n", GYRO_BASE_DEVICE_PATH, _gyro_class_instance);
 
         printf("MPU6000 GYRO Device: %s%u\n",
                GYRO_BASE_DEVICE_PATH, _gyro_class_instance);
