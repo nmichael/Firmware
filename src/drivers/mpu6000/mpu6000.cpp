@@ -665,6 +665,9 @@ MPU6000::init()
 
 	_accel_class_instance = register_class_devname(ACCEL_BASE_DEVICE_PATH);
 
+        printf("MPU6000 ACC Device: %s%u\n",
+               ACCEL_BASE_DEVICE_PATH, _accel_class_instance);
+
 	measure();
 
 	/* advertise sensor topic, measure manually to initialize valid report */
@@ -674,6 +677,9 @@ MPU6000::init()
 	/* measurement will have generated a report, publish */
 	_accel_topic = orb_advertise_multi(ORB_ID(sensor_accel), &arp,
 		&_accel_orb_class_instance, (is_external()) ? ORB_PRIO_MAX : ORB_PRIO_HIGH);
+
+        printf("_accel_orb_class_instance (should be 0) = %u\n",
+               _accel_orb_class_instance);
 
 	if (_accel_topic < 0) {
 		warnx("ADVERT FAIL");
@@ -686,6 +692,9 @@ MPU6000::init()
 
 	_gyro->_gyro_topic = orb_advertise_multi(ORB_ID(sensor_gyro), &grp,
 		&_gyro->_gyro_orb_class_instance, (is_external()) ? ORB_PRIO_MAX : ORB_PRIO_HIGH);
+
+        printf("_gyro_orb_class_instance (should be 0) = %u\n",
+               _gyro->_gyro_orb_class_instance);
 
 	if (_gyro->_gyro_topic < 0) {
 		warnx("ADVERT FAIL");
@@ -1914,6 +1923,9 @@ MPU6000_gyro::init()
 	}
 
 	_gyro_class_instance = register_class_devname(GYRO_BASE_DEVICE_PATH);
+
+        printf("MPU6000 GYRO Device: %s%u\n",
+               GYRO_BASE_DEVICE_PATH, _gyro_class_instance);
 
 	return ret;
 }

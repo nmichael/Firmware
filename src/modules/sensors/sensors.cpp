@@ -1402,6 +1402,8 @@ Sensors::parameter_update_poll(bool forced)
 				continue;
 			}
 
+                        printf("GYRO%u Device: %s, ID = %u\n", s, str, ioctl(fd, DEVIOCGDEVICEID, 0));
+
 			bool config_ok = false;
 
 			/* run through all stored calibrations */
@@ -1467,6 +1469,8 @@ Sensors::parameter_update_poll(bool forced)
 			if (fd < 0) {
 				continue;
 			}
+
+                        printf("ACC%u Device: %s, ID = %u\n", s, str, ioctl(fd, DEVIOCGDEVICEID, 0));
 
 			bool config_ok = false;
 
