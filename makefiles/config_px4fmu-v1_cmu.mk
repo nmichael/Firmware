@@ -82,6 +82,7 @@ MODULES		+= modules/attitude_estimator_so3
 #MODULES		+= modules/mc_att_control
 #MODULES		+= modules/mc_pos_control
 MODULES		+= modules/cmu_rc_command
+MODULES		+= modules/cmu_voltage_monitor
 
 #
 # Logging
