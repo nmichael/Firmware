@@ -46,6 +46,7 @@
 UavcanEscController::UavcanEscController(uavcan::INode &node) :
 	_node(node),
 	_uavcan_pub_raw_cmd(node),
+        _uavcan_pub_rpm_cmd(node),
 	_uavcan_sub_status(node),
 	_orb_timer(node)
 {
@@ -142,6 +143,64 @@ void UavcanEscController::update_outputs(float *outputs, unsigned num_outputs)
 	 * Note that for a quadrotor it takes one CAN frame
 	 */
 	(void)_uavcan_pub_raw_cmd.broadcast(msg);
+}
+
+void UavcanEscController::update_outputs_rpm(float *outputs, unsigned num_outputs)
+{
+  if (num_outputs % 2)
+  {
+    warnx("Odd number of rpm motor inputs - unexpected and bailing");
+    return;
+  }
+
+  if ((outputs == nullptr) || (num_outputs/2 > esc_status_s::CONNECTED_ESC_MAX))
+  {
+    perf_count(_perfcnt_invalid_input);
+    return;
+  }
+
+  /*
+   * Rate limiting - we don't want to congest the bus
+   */
+  const auto timestamp = _node.getMonotonicTime();
+
+  if ((timestamp - _prev_cmd_pub).toUSec() < (1000000 / MAX_RATE_HZ)) {
+    return;
+  }
+
+  _prev_cmd_pub = timestamp;
+
+  /*
+   * Fill the command message
+   * If unarmed, we publish an empty message anyway
+   */
+  uavcan::equipment::esc::RPMCommand msg;
+  msg.rpm.clear();
+
+  unsigned int num_motors = num_outputs/2;
+
+  for (unsigned int i = 0; i < num_motors; i++)
+  {
+    msg.rpm.push_back(static_cast<int>(outputs[2*i]));
+    if (_armed_mask & MOTOR_BIT(i))
+      msg.rpm.push_back(static_cast<int>(outputs[2*i+1]));
+    else
+      msg.rpm.push_back(0);
+  }
+
+  static unsigned int debug_counter = 0;
+  if (debug_counter++ > 50)
+  {
+    warnx("CAN cmd:");
+    for (unsigned int i = 0; i < num_motors; i++)
+      warnx("%u: %0.2f, %0.2f", i, double(msg.rpm[2*i]), double(msg.rpm[2*i+1]));
+    debug_counter = 0;
+  }
+  /*
+   * Publish the command message to the bus
+   * Note that for a quadrotor it takes one CAN frame
+   */
+  (void)_uavcan_pub_rpm_cmd.broadcast(msg);
 }
 
 void UavcanEscController::arm_all_escs(bool arm)

@@ -604,6 +604,7 @@ int UavcanNode::run()
 
 		if (new_output) {
 			// iterate actuators, checking for valid values
+#if 0 // Do not check range - use RPM
 			for (uint8_t i = 0; i < _outputs.noutputs; i++) {
 				// last resort: catch NaN, INF and out-of-band errors
 				if (!isfinite(_outputs.output[i])) {
@@ -625,11 +626,12 @@ int UavcanNode::run()
 					_outputs.output[i] = 1.0f;
 				}
 			}
+#endif
 
 			// Output to the bus
 			_outputs.timestamp = hrt_absolute_time();
 			perf_begin(_perfcnt_esc_mixer_output_elapsed);
-			_esc_controller.update_outputs(_outputs.output, _outputs.noutputs);
+			_esc_controller.update_outputs_rpm(_outputs.output, _outputs.noutputs);
 			perf_end(_perfcnt_esc_mixer_output_elapsed);
 		}
 
