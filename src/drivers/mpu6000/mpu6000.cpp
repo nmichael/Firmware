@@ -676,7 +676,6 @@ MPU6000::init()
 	}
 
 	_accel_class_instance = register_class_devname(ACCEL_BASE_DEVICE_PATH);
-	printf("MPU6000 ACC Device: %s%u\n", ACCEL_BASE_DEVICE_PATH, _accel_class_instance);
 
         printf("MPU6000 ACC Device: %s%u\n",
                ACCEL_BASE_DEVICE_PATH, _accel_class_instance);
@@ -1955,7 +1954,6 @@ MPU6000_gyro::init()
 	}
 
 	_gyro_class_instance = register_class_devname(GYRO_BASE_DEVICE_PATH);
-	printf("MPU6000 GYRO Device: %s%u\n", GYRO_BASE_DEVICE_PATH, _gyro_class_instance);
 
         printf("MPU6000 GYRO Device: %s%u\n",
                GYRO_BASE_DEVICE_PATH, _gyro_class_instance);
