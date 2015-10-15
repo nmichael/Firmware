@@ -444,6 +444,7 @@ HMC5883::init()
 	reset();
 
 	_class_instance = register_class_devname(MAG_BASE_DEVICE_PATH);
+	printf("HMC5883 MAG Device: %s%u\n", MAG_BASE_DEVICE_PATH, _class_instance);
 
 	ret = OK;
 	/* sensor is ok, but not calibrated */
@@ -1010,6 +1011,8 @@ HMC5883::collect()
 		} else {
 			_mag_topic = orb_advertise_multi(ORB_ID(sensor_mag), &new_report,
 				&_orb_class_instance, (sensor_is_onboard) ? ORB_PRIO_HIGH : ORB_PRIO_MAX);
+
+                        printf("HMC5883 mag orb instance (should be 0) = %d\n", _orb_class_instance);
 
 			if (_mag_topic < 0)
 				debug("ADVERT FAIL");
