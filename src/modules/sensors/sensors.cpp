@@ -1613,6 +1613,8 @@ Sensors::parameter_update_poll(bool forced)
 				continue;
 			}
 
+                        printf("MAG%u Device: %s, ID = %u\n", s, str, ioctl(fd, DEVIOCGDEVICEID, 0));
+
 			/* set a valid default rotation (same as board).
 			 * if the mag is configured, this might be replaced
 			 * in the section below.
