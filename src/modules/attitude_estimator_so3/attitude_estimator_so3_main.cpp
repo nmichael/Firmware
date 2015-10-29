@@ -568,6 +568,9 @@ int attitude_estimator_so3_thread_main(int argc, char *argv[])
 						continue;
 					}
 
+          mag[0] = 0.0;
+          mag[1] = 0.0;
+          mag[2] = 0.0;
                                         // gyro, acc is rotated by sensors module by SENS_BOARD_ROT param
 					NonlinearSO3AHRSupdate(gyro[0], gyro[1], gyro[2],
 										acc[0], acc[1], acc[2],
